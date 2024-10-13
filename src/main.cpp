@@ -2,10 +2,12 @@
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
 #include <WiFi.h>
 #include <ESPmDNS.h>
-#include <ESPAsyncWebServer.h>
 #include <Fonts/Picopixel.h>
 #include <Fonts/FreeSerif9pt7b.h>
 #include <ArduinoJson.h>
+#include <time.h>
+#include <HTTPClient.h>
+
 /*
 *********************************************
 * WiFi Related variables
@@ -15,13 +17,13 @@
 const char *ssid = "SingleDigits - Resident";
 const char *password = "PadSavingsSchema";
 const char *hostname = "esp32-wmata-monitor";
+const char *apiEndpointUrl = "http://guardianape.local:5000";
 
 /*
 *********************************************
 * Web Related variables
 *********************************************
 */
-AsyncWebServer webServer(80);
 
 /******************************************** */
 
@@ -35,6 +37,7 @@ uint16_t red = dma_display->color565(255, 0, 0);
 uint16_t blue = dma_display->color565(0, 255, 0);
 uint16_t green = dma_display->color565(0, 0, 255);
 uint16_t white = dma_display->color565(255, 255, 255);
+uint16_t black = dma_display->color565(0, 0, 0);
 
 const int MAX_LINES = 10; // Adjust based on expected number of lines
 const int MAX_LINE_LENGTH = 100; // Adjust based on maximum line length
@@ -61,6 +64,35 @@ const int MAX_LINE_LENGTH = 100; // Adjust based on maximum line length
 #define OE_PIN 32
 #define CLK_PIN 33
 /******************************************** */
+
+
+// Last fetched timestamp in Unix format
+time_t lastFetchedTimestamp = 0;
+
+/**
+ * Get a relative time string for a given past timestamp.
+ * @param pastTimestamp The past timestamp to calculate the relative time from.
+ * @return A string representing the relative time, e.g., "5 seconds ago", "3 hours ago".
+ */
+std::string getRelativeTimeString(time_t pastTimestamp) {
+    time_t currentTime = time(nullptr);
+    time_t diff = currentTime - pastTimestamp;
+
+    if (diff < 60) {
+        return std::to_string(diff) + " s ago";
+    } else if (diff < 3600) {
+        return std::to_string(diff / 60) + " m ago";
+    } else if (diff < 86400) {
+        return std::to_string(diff / 3600) + " h ago";
+    } else if (diff < 2592000) { // Less than 30 days
+        return std::to_string(diff / 86400) + " d ago";
+    } else if (diff < 31104000) { // Less than 12 months
+        return std::to_string(diff / 2592000) + " M ago";
+    } else {
+        return std::to_string(diff / 31104000) + " y ago";
+    }
+}
+
 
 void setPinModes()
 {
@@ -112,79 +144,13 @@ void initWifi()
   Serial.println(WiFi.localIP());
 }
 
-void getNotFound(AsyncWebServerRequest *request)
-{
-  request->send(404, "text/plain", "Not found");
-}
-
-void getHome(AsyncWebServerRequest *request)
-{
-  request->send(200, "text/plain", "Hello");
-}
-
-
-void postTrainTimings(AsyncWebServerRequest *request)
-{
-  String data;
-  int params = request->params();
-  for (int i=0;i<params;i++){
-    AsyncWebParameter *p = request->getParam(i);
-    if(p->isPost()){
-      data = p->value().c_str();
-      JsonDocument doc;
-      DeserializationError error = deserializeJson(doc, data);
-      if (error) {
-          Serial.print("deserializeJson() failed: ");
-          Serial.println(error.c_str());
-          return;
-      }
-      const char* line_0_name = doc["line"][0]["name"];
-      const char* line_0_destinations_0 = doc["line"][0]["destinations"][0];
-      const char* line_0_destinations_1 = doc["line"][0]["destinations"][1];
-      const char* timestamp = doc["timestamp"];
-
-      Serial.println(line_0_name);
-      Serial.println(line_0_destinations_0);
-      Serial.println(line_0_destinations_1);
-      Serial.println(timestamp);
-      
-      dma_display->clearScreen();
-      dma_display->setFont(nullptr);
-      dma_display->setTextColor(red);
-
-      dma_display->setCursor(0, 0);
-      dma_display->print(line_0_destinations_0);
-
-      dma_display->setCursor(0, 9);
-      dma_display->print(line_0_destinations_1);
-
-
-      dma_display->setTextColor(white);
-      dma_display->setCursor(0, 24);
-      dma_display->setFont(&Picopixel);
-      dma_display->print(timestamp);
-    }
-  }
-  request->send(200, "text/plain", "Success");
-}
-
-void initWebServer()
-{
-  webServer.on("/", HTTP_GET, getHome);
-  webServer.on("/", HTTP_POST, postTrainTimings);
-  webServer.onNotFound(getNotFound);
-
-  webServer.begin();
-  Serial.print("\nStarted Web Server");
-}
-
 void setup()
 {
   // put your setup code here, to run once:
   Serial.begin(115200);
   while (!Serial)
-  {
-    // This loop will continuously run until the serial connection is established
+  { 
+    // This loop will continuously run until the serial connection is established 
   }
 
   setPinModes();
@@ -207,14 +173,74 @@ void setup()
   dma_display->setCursor(0, 0);
   dma_display->print("Connecting to Wi-Fi...");
   initWifi();
-  dma_display->print("Starting Server...");
-  initWebServer();
+
+
+  // Synchronize time using NTP server
+  configTime(0, 0, "pool.ntp.org");
   dma_display->clearScreen();
   dma_display->setTextColor(green);
   dma_display->setCursor(0, 0);
-  dma_display->print("Ready!");
+  dma_display->print("Time Synchronized");
 }
 
-void loop()
-{
+void loop() {
+    static unsigned long lastApiFetchMillis = 0;
+    unsigned long currentTimeMillis = millis();
+
+    // Fetch from API every 5 seconds
+    if (currentTimeMillis - lastApiFetchMillis >= 5000 || lastApiFetchMillis == 0) {
+        if (WiFi.status() == WL_CONNECTED) {
+            HTTPClient httpClient;
+            httpClient.begin(apiEndpointUrl);
+            int httpStatusCode = httpClient.GET();
+
+            if (httpStatusCode == 200) {
+                dma_display->clearScreen();
+                dma_display->setFont(nullptr);
+                String apiResponsePayload = httpClient.getString();
+                StaticJsonDocument<200> doc;
+                DeserializationError error = deserializeJson(doc, apiResponsePayload);
+                if (!error) {
+                    JsonArray lineArray = doc["line"].as<JsonArray>();
+                    dma_display->setTextColor(red);
+                    dma_display->setCursor(1, 0);
+                    dma_display->print(lineArray[0].as<const char*>());
+                    dma_display->setCursor(1, 9);
+                    dma_display->print(lineArray[1].as<const char*>());
+
+                    const char* timestampStr = doc["timestamp"];
+                    struct tm timeInfo;
+                    if (strptime(timestampStr, "%Y-%m-%dT%H:%M:%S", &timeInfo)) {
+                        lastFetchedTimestamp = mktime(&timeInfo);
+                    }
+                } else {
+                    dma_display->clearScreen();
+                    dma_display->setTextColor(red);
+                    dma_display->setCursor(0, 0);
+                    dma_display->print("PARSE ERROR");
+                }
+            } else {
+              dma_display->clearScreen();
+              dma_display->setTextColor(red);
+              dma_display->setCursor(0, 0);
+              dma_display->print("API ERROR");
+            }
+            httpClient.end();
+        } else {
+            dma_display->clearScreen();
+            dma_display->setTextColor(red);
+            dma_display->setCursor(0, 0);
+            dma_display->print("NO WIFI");
+        }
+        lastApiFetchMillis = currentTimeMillis;
+    }
+
+    // Print the relative time every second
+    if (lastFetchedTimestamp != 0) {
+        dma_display->fillRect(0, 24, dma_display->width(), 8, black); // this is like a mini-clear screen
+        dma_display->setTextColor(white);
+        dma_display->setCursor(1, 24);
+        dma_display->write(getRelativeTimeString(lastFetchedTimestamp).c_str());
+    }
+    delay(1000);
 }
