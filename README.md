@@ -1,94 +1,310 @@
-# WMATA Monitor ESP32
+# 🚇 WMATA Metro Monitor
 
-This project provides the source code for an ESP32 module that connects to a 64x32 LED display. The ESP32 module is designed to connect to a Wi-Fi network and retrieve WMATA metro timing predictions from a webserver. The display then shows the real-time metro schedule.
+A real-time DC Metro train arrival display built with an ESP32 and a 64x32 LED matrix panel. Shows the next arriving trains for any WMATA station directly from the official WMATA API.
 
-While this project is functional, it contains some hardcoded assumptions based on the specific setup of the metro timing server. These include the expected format of the server's response, which is provided by a Flask webserver running on a Raspberry Pi. Therefore, the project is not fully generic and may require adjustments if used in a different context. However, it serves as a useful reference for how to control a 64x32 LED matrix display with an ESP32.
+![Display Example](https://img.shields.io/badge/Display-64x32_LED_Matrix-blue)
+![Platform](https://img.shields.io/badge/Platform-ESP32-red)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-## Features
+## ⚡ Quick Start
 
-- Acts as an HTTP Client and reach out to a web server to retrieve real-time WMATA train predictions. 
-- Displays predictions on a 64x32 LED matrix.
-- Displays the last time the data was updated
+### 1. Get Your WMATA API Key
+1. Go to [WMATA Developer Portal](https://developer.wmata.com/)
+2. Create a free account
+3. Subscribe to the **Default Tier** (free, 10 calls/second)
+4. Copy your **Primary Key** from the profile page
 
-## Prerequsites
-- ESP-WROOM-32 ([Amazon Link](https://www.amazon.com/gp/product/B08D5ZD528/ref=ppx_yo_dt_b_search_asin_title?ie=UTF8&th=1))
-- 64x32 2048 RGB Full Color LED Matrix Panel ([Amazon Link](https://www.amazon.com/gp/product/B0BRBGHFKQ/ref=ppx_yo_dt_b_search_asin_title?ie=UTF8&th=1))
-  - Must be a HUB75 / HUB75E connection based RGB LED panel
-  - The LED write operations are significantly simplified by using this library, which is fully compatible with the hardware I purchased from the provided link. You can find the library here: [ESP32-HUB75-MatrixPanel-DMA](https://github.com/mrcodetastic/ESP32-HUB75-MatrixPanel-DMA).
-- A server that returns metro timings in the following format
-```json
-{
-    // must be a list of exactly two strings
-    "line": [
-        "Sta1 5,10",
-        "Sta2 4,9"
-    ],
+### 2. Find Your Station Code
+1. Visit the [WMATA Station List API](https://developer.wmata.com/docs/services/5476364f031f590f38092507/operations/5476364f031f5909e4fe3310/console)
+2. Look up your station and note the `Code` field (e.g., `B35` for NoMA-Gallaudet U)
 
-    // timestamp must be in ISO format
-    "timestamp": "2024-10-12T21:20:03.143040"
-}
+### 3. Configure the Project
+Create a `.env` file in the project root:
+```bash
+WMATA_API_KEY=your_api_key_here
+STATION_CODE=B35
 ```
-## Libraries
 
-## Project Structure
+### 4. Update WiFi Credentials
+Edit `include/config.h` and update:
+```cpp
+#define WIFI_SSID "your-wifi-name"
+#define WIFI_PASSWORD "your-wifi-password"
+```
 
-- `src/`: Contains the main source code for the ESP32 module.
-- `platformio.ini`: Configuration file for the PlatformIO
+### 5. Flash the ESP32
+```bash
+# Install PlatformIO CLI (if not already installed)
+pip install platformio
 
+# Build and upload
+pio run --target upload
 
-## Installation and Setup
+# Monitor serial output (optional)
+pio device monitor
+```
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/yourusername/esp32-metro-timing-display.git
-   cd esp32-metro-timing-display
-   ```
-
-2. **Install PlatformIO**:
-   Follow the instructions to install PlatformIO from [here](https://platformio.org/install).
-
-3. **Connect your ESP32**:
-   Plug your ESP32 module into your computer via USB.
-
-4. **Configure Wi-Fi credentials**:
-   Open the `src/main.cpp` file and update the Wi-Fi credentials and server URL to match your setup:
-   ```cpp
-   const char* ssid = "your-SSID";
-   const char* password = "your-PASSWORD";
-   const char* serverURL = "http://your-flask-server/api/timings";
-   ```
-
-5. **Flash the firmware**:
-   Use PlatformIO to compile and upload the firmware to your ESP32:
-   ```bash
-   pio run --target upload
-   ```
-
-6. **Run the Flask Server**:
-   Ensure that your Flask server is running and returning the metro timing predictions in the expected format.
-
-## Usage
-
-Once the ESP32 module is flashed and running:
-
-- It will connect to the specified Wi-Fi network.
-- It will make a request to the Flask webserver running on your Raspberry Pi.
-- The LED display will show the real-time metro schedule based on the server's response.
-
-## Limitations
-
-- **Hardcoded Server Response Format**: The current code assumes that the webserver's response follows a specific format designed for this project. To use the code in a different context, you may need to modify how the response is parsed.
-- **Non-Generic**: This code is designed specifically for a particular metro timing system. It may not work as-is for other use cases without modification.
-- **No Detailed Instructions**: This project assumes a working knowledge of ESP32, PlatformIO, and LED matrix displays.
-
-## Inspiration
-
-This project is a great starting point if you are looking to learn how to interface an ESP32 with a 64x32 LED matrix display. While it may not be directly applicable to all projects, it demonstrates the basic principles of connecting to a web server and displaying data on an LED matrix.
-
-## License
-
-This project is open-source and licensed under the MIT License. Feel free to modify and use it as inspiration for your own projects.
+That's it! Your display should now show real-time train arrivals.
 
 ---
 
-**Disclaimer**: This project is provided as-is, with no detailed instructions on adapting it to different use cases. It was developed for a specific purpose, and modifications will likely be required for other applications.
+## 📖 How It Works
+
+This project turns an ESP32 microcontroller into a real-time metro display:
+
+1. **Connects to WiFi** - The ESP32 connects to your home network
+2. **Fetches Train Data** - Every 30 seconds, it calls the [WMATA Real-Time Rail Predictions API](https://developer.wmata.com/docs/services/547636a6f9182302184cda78/operations/547636a6f918230da855363f)
+3. **Parses the Response** - Extracts the next arriving train from each direction (Group 1 & 2)
+4. **Displays on LED Matrix** - Shows destination names, arrival times, and line colors on the display
+5. **Shows Last Update Time** - The bottom of the display shows how long ago the data was refreshed
+
+The display uses the official WMATA metro line colors (Red, Blue, Orange, Green, Yellow, Silver) to color-code train information.
+
+---
+
+## 🔧 Hardware Requirements
+
+| Component | Description | Link |
+|-----------|-------------|------|
+| **ESP32** | ESP-WROOM-32 Development Board | [Amazon](https://www.amazon.com/gp/product/B08D5ZD528/) |
+| **LED Matrix** | 64x32 RGB LED Matrix Panel (HUB75/HUB75E) | [Amazon](https://www.amazon.com/gp/product/B0BRBGHFKQ/) |
+| **Power Supply** | 5V 4A (or higher) DC adapter | Required for LED matrix |
+| **Jumper Wires** | Male-to-female dupont wires | For connecting ESP32 to matrix |
+
+### Wiring Diagram
+
+Connect the ESP32 to the HUB75 LED matrix panel as follows:
+
+| LED Matrix Pin | ESP32 GPIO |
+|----------------|------------|
+| R1 | GPIO 13 |
+| G1 | GPIO 22 |
+| B1 | GPIO 21 |
+| R2 | GPIO 14 |
+| G2 | GPIO 23 |
+| B2 | GPIO 27 |
+| A | GPIO 26 |
+| B | GPIO 15 |
+| C | GPIO 25 |
+| D | GPIO 18 |
+| E | Not connected (-1) |
+| LAT | GPIO 19 |
+| OE | GPIO 32 |
+| CLK | GPIO 33 |
+| GND | GND |
+
+> **Note**: Power the LED matrix directly from a 5V supply, not from the ESP32's 5V pin. The matrix draws significant current that the ESP32 cannot provide.
+
+---
+
+## 📦 Installation
+
+### Install PlatformIO
+
+**Option 1: VS Code Extension (Recommended)**
+1. Install [Visual Studio Code](https://code.visualstudio.com/)
+2. Open VS Code and go to Extensions (Ctrl+Shift+X / Cmd+Shift+X)
+3. Search for "PlatformIO IDE" and install it
+4. Restart VS Code when prompted
+
+**Option 2: CLI Only**
+```bash
+# Using pip (Python required)
+pip install platformio
+
+# Verify installation
+pio --version
+```
+
+For more options, see the [PlatformIO Installation Guide](https://platformio.org/install).
+
+### Clone and Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/WMATAMonitorESP32.git
+cd WMATAMonitorESP32
+
+# Create your .env file
+cp .env.example .env  # Or create manually
+
+# Edit .env with your API key and station code
+# Edit include/config.h with your WiFi credentials
+```
+
+### Build and Upload
+
+```bash
+# Build the project
+pio run
+
+# Build and upload to ESP32
+pio run --target upload
+
+# Monitor serial output
+pio device monitor --baud 115200
+```
+
+---
+
+## 🔑 Getting a WMATA API Key
+
+1. **Create an Account**
+   - Visit [developer.wmata.com](https://developer.wmata.com/)
+   - Click "Sign Up" in the top right
+   - Complete the registration form
+
+2. **Subscribe to an API Product**
+   - After signing in, go to [Products](https://developer.wmata.com/Products)
+   - Click on **Default Tier** (free tier)
+   - Click "Subscribe"
+   - Accept the terms
+
+3. **Get Your Key**
+   - Go to your [Profile](https://developer.wmata.com/profile)
+   - Under "Subscriptions", find your Default Tier subscription
+   - Click "Show" next to Primary Key
+   - Copy this key—this is your `WMATA_API_KEY`
+
+> **Rate Limits**: The free tier allows 10 calls per second. This project refreshes every 30 seconds, well within limits.
+
+---
+
+## 🗺️ Finding Station Codes
+
+Each WMATA station has a unique code. You can find them:
+
+**Option 1: API Explorer**
+- Use the [Station List API](https://developer.wmata.com/docs/services/5476364f031f590f38092507/operations/5476364f031f5909e4fe3310/console)
+- Click "Try it" and find your station in the response
+
+**Option 2: Common Station Codes**
+
+| Station | Code | Lines |
+|---------|------|-------|
+| Metro Center | A01/C01 | RD/BL/OR/SV |
+| Gallery Place | B01/F01 | RD/GR/YL |
+| Union Station | B03 | RD |
+| L'Enfant Plaza | D03/F03 | BL/OR/SV/GR/YL |
+| NoMA-Gallaudet U | B35 | RD |
+| Dupont Circle | A03 | RD |
+| Pentagon | C07 | BL/YL |
+| Reagan Airport | C10 | BL/YL |
+
+> **Note**: Some stations have multiple codes (one per line). Use the code for your preferred line.
+
+---
+
+## 📁 Project Structure
+
+```
+WMATAMonitorESP32/
+├── src/
+│   ├── main.cpp           # Main application logic
+│   ├── display.cpp        # LED matrix display functions
+│   ├── wifi_manager.cpp   # WiFi connection handling
+│   ├── wmata_client.cpp   # WMATA API client
+│   ├── relative_time.cpp  # Time formatting utilities
+│   └── time_utils.cpp     # Time utilities
+├── include/
+│   ├── config.h           # WiFi and hardware configuration
+│   ├── display.h          # Display class header
+│   ├── wifi_manager.h     # WiFi manager header
+│   ├── wmata_client.h     # WMATA client header
+│   └── ...
+├── test/                  # Unit tests
+├── .env                   # Your API key and station code (gitignored)
+├── load_env.py            # Script to load .env into build
+└── platformio.ini         # PlatformIO configuration
+```
+
+---
+
+## ⚙️ Configuration Reference
+
+### Environment Variables (`.env`)
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `WMATA_API_KEY` | Yes | - | Your WMATA Developer API key |
+| `STATION_CODE` | No | `B35` | Station code to monitor |
+
+### Hardware Configuration (`include/config.h`)
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `WIFI_SSID` | - | Your WiFi network name |
+| `WIFI_PASSWORD` | - | Your WiFi password |
+| `PANEL_RES_X` | 64 | LED matrix width in pixels |
+| `PANEL_RES_Y` | 32 | LED matrix height in pixels |
+| `PANEL_CHAIN` | 1 | Number of chained panels |
+
+### Application Settings (`src/main.cpp`)
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `REFRESH_INTERVAL_MS` | 30000 | API refresh interval (30 seconds) |
+
+---
+
+## 🧪 Running Tests
+
+This project includes unit tests that can run on your computer (no hardware needed):
+
+```bash
+# Run all tests on native platform
+pio test -e native
+
+# Run tests on ESP32 (requires connected device)
+pio test -e esp32dev_test
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### "WiFi Failed!" on display
+- Double-check your SSID and password in `config.h`
+- Ensure your WiFi network is 2.4GHz (ESP32 doesn't support 5GHz)
+- Move the device closer to your router
+
+### "API Error" on display
+- Verify your `WMATA_API_KEY` is correct in `.env`
+- Check that you've subscribed to the Default Tier on the WMATA developer portal
+- The WMATA API may be temporarily down—try again later
+
+### "No trains" on display
+- This is normal if no trains are arriving at your station
+- Late at night when Metro is closed, this is expected
+
+### Display shows garbage or nothing
+- Check all wiring connections
+- Ensure the LED matrix has adequate power (5V 4A recommended)
+- Verify the pin definitions in `config.h` match your wiring
+
+### Build fails with missing environment variable
+- Make sure `.env` file exists in the project root
+- Check that `WMATA_API_KEY=your_key` is on its own line
+
+---
+
+## 📚 Libraries Used
+
+| Library | Purpose |
+|---------|---------|
+| [ESP32-HUB75-MatrixPanel-DMA](https://github.com/mrcodetastic/ESP32-HUB75-MatrixPanel-DMA) | LED matrix display driver |
+| [ArduinoJson](https://arduinojson.org/) | JSON parsing for API responses |
+| [Adafruit GFX](https://github.com/adafruit/Adafruit-GFX-Library) | Graphics primitives |
+
+---
+
+## 📄 License
+
+This project is open-source and licensed under the MIT License. Feel free to modify and use it for your own projects.
+
+---
+
+## 🙏 Acknowledgments
+
+- [WMATA](https://wmata.com/) for providing the public API
+- [mrcodetastic](https://github.com/mrcodetastic) for the excellent ESP32 LED matrix library
