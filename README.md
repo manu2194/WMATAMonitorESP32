@@ -61,7 +61,7 @@ While this project is functional, it contains some hardcoded assumptions based o
 5. **Flash the firmware**:
    Use PlatformIO to compile and upload the firmware to your ESP32:
    ```bash
-   platformio run --target upload
+   pio run --target upload
    ```
 
 6. **Run the Flask Server**:
