@@ -5,14 +5,8 @@
 #include "wmata_client.h"
 #include "relative_time.h"
 
-// WMATA_API_KEY is defined via build flags from .env file
+// WMATA_API_KEY and STATION_CODE are defined via build flags from .env file
 // See load_env.py for details
-/**
- * Station Configuration
- * Change these values to monitor a different station
- */
-#define STATION_CODE "B35"           // NoMA-Gallaudet U
-#define STATION_NAME "NoMa-Gallaudet U"
 
 /**
  * Refresh interval for metro data (in milliseconds)
@@ -34,8 +28,10 @@ Display display;
 WifiManager wifi;
 WmataClient wmataClient(STATION_CODE, WMATA_API_KEY);
 
-// Timing variables
+// State tracking
 unsigned long lastFetchTime = 0;
+bool hasError = false;           // Track if last fetch had an error
+const char* errorMessage = "";   // Error message to display
 
 /**
  * Get the appropriate color for a metro line
@@ -55,24 +51,47 @@ uint16_t getLineColor(const char* lineCode) {
 
 /**
  * Fetch and display metro arrivals
+ * Sets hasError and errorMessage if fetch fails
  */
 void updateMetroDisplay() {
     Serial.println("[MAIN] Updating metro display...");
     
+    // Calculate relative time (always shown, even on error)
+    unsigned long elapsedMs = millis() - lastFetchTime;
+    char relativeTime[16];
+    formatRelativeTime(elapsedMs, relativeTime, sizeof(relativeTime));
+    
     if (!wmataClient.fetchPredictions()) {
         Serial.println("[MAIN] Failed to fetch predictions");
-        display.clear();
-        display.showMessage("API Error", display.color565(255, 0, 0));
+        hasError = true;
+        errorMessage = "API Error";
+        
+        // Show error but still display the timer
+        display.showMetroArrivals(
+            "ERR", "!",
+            nullptr, nullptr,
+            relativeTime, display.color565(255, 0, 0)
+        );
         return;
     }
     
     int trainCount = wmataClient.getTrainCount();
     
     if (trainCount == 0) {
-        display.clear();
-        display.showMessage("No trains", display.color565(255, 255, 0));
+        hasError = true;
+        errorMessage = "No trains";
+        
+        display.showMetroArrivals(
+            "None", "-",
+            nullptr, nullptr,
+            relativeTime, display.color565(255, 255, 0)
+        );
         return;
     }
+    
+    // Success! Clear error state
+    hasError = false;
+    errorMessage = "";
     
     // Get train data
     TrainPrediction train1 = wmataClient.getTrain(0);
@@ -80,11 +99,6 @@ void updateMetroDisplay() {
     
     // Get line color from first train
     uint16_t lineColor = getLineColor(train1.line);
-    
-    // Calculate relative time since last fetch
-    unsigned long elapsedMs = millis() - wmataClient.getLastFetchTime();
-    char relativeTime[16];
-    formatRelativeTime(elapsedMs, relativeTime, sizeof(relativeTime));
     
     // Display the arrivals
     if (trainCount == 1) {
@@ -103,23 +117,38 @@ void updateMetroDisplay() {
 }
 
 /**
- * Update the "last updated" display without refetching data
+ * Update the display (timer always updates, data only if no error)
  */
-void updateRelativeTimeDisplay() {
+void updateDisplay() {
+    // Calculate relative time since last fetch (always shown)
+    unsigned long elapsedMs = millis() - lastFetchTime;
+    char relativeTime[16];
+    formatRelativeTime(elapsedMs, relativeTime, sizeof(relativeTime));
+    
+    if (hasError) {
+        // Still in error state - show error with updated timer
+        display.showMetroArrivals(
+            "ERR", "!",
+            nullptr, nullptr,
+            relativeTime, display.color565(255, 0, 0)
+        );
+        return;
+    }
+    
     int trainCount = wmataClient.getTrainCount();
     
     if (trainCount == 0) {
-        return;  // Nothing to update
+        display.showMetroArrivals(
+            "None", "-",
+            nullptr, nullptr,
+            relativeTime, display.color565(255, 255, 0)
+        );
+        return;
     }
     
     TrainPrediction train1 = wmataClient.getTrain(0);
     TrainPrediction train2 = wmataClient.getTrain(1);
     uint16_t lineColor = getLineColor(train1.line);
-    
-    // Calculate relative time since last fetch
-    unsigned long elapsedMs = millis() - wmataClient.getLastFetchTime();
-    char relativeTime[16];
-    formatRelativeTime(elapsedMs, relativeTime, sizeof(relativeTime));
     
     // Redraw display with updated relative time
     if (trainCount == 1) {
@@ -144,7 +173,7 @@ void setup() {
     }
     
     Serial.println("\n=== WMATA Metro Monitor ===");
-    Serial.printf("Station: %s (%s)\n", STATION_NAME, STATION_CODE);
+    Serial.printf("Station Code: %s\n", STATION_CODE);
     
     // Initialize display
     display.init();
@@ -168,8 +197,8 @@ void setup() {
     // Initial fetch
     display.clear();
     display.showMessage("Fetching...", display.color565(255, 255, 255));
+    lastFetchTime = millis();  // Set time before fetch for accurate timer
     updateMetroDisplay();
-    lastFetchTime = millis();
 }
 
 void loop() {
@@ -177,11 +206,11 @@ void loop() {
     
     // Refresh data every REFRESH_INTERVAL_MS
     if (currentTime - lastFetchTime >= REFRESH_INTERVAL_MS) {
+        lastFetchTime = currentTime;  // Update time before fetch
         updateMetroDisplay();
-        lastFetchTime = currentTime;
     } else {
-        // Just update the relative time display (every second)
-        updateRelativeTimeDisplay();
+        // Just update the timer display (every second)
+        updateDisplay();
     }
     
     delay(1000);
