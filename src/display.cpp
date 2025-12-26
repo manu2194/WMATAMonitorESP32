@@ -86,3 +86,47 @@ uint16_t Display::color565(uint8_t r, uint8_t g, uint8_t b) {
     }
     return 0;
 }
+
+void Display::showMetroArrivals(const char* train1Dest, const char* train1Min,
+                                 const char* train2Dest, const char* train2Min,
+                                 const char* lastUpdated, uint16_t lineColor) {
+    if (!_display) return;
+    
+    _display->clearScreen();
+    
+    // Row height spacing for 32-pixel tall display
+    // Line 1: y = 2
+    // Line 2: y = 12
+    // Line 3: y = 22
+    
+    // Display first train (if available)
+    if (train1Dest != nullptr && train1Min != nullptr) {
+        char line1[24];
+        snprintf(line1, sizeof(line1), "%s - %s", train1Dest, train1Min);
+        
+        _display->setTextColor(lineColor);
+        _display->setCursor(1, 2);
+        _display->print(line1);
+    } else {
+        _display->setTextColor(_colorWhite);
+        _display->setCursor(1, 2);
+        _display->print("No trains");
+    }
+    
+    // Display second train (if available)
+    if (train2Dest != nullptr && train2Min != nullptr) {
+        char line2[24];
+        snprintf(line2, sizeof(line2), "%s - %s", train2Dest, train2Min);
+        
+        _display->setTextColor(lineColor);
+        _display->setCursor(1, 12);
+        _display->print(line2);
+    }
+    
+    // Display last updated time at bottom
+    if (lastUpdated != nullptr) {
+        _display->setTextColor(_colorWhite);
+        _display->setCursor(1, 24);
+        _display->print(lastUpdated);
+    }
+}

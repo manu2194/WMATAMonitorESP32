@@ -42,6 +42,28 @@ public:
     void showTime(int hour, int minute, int second, bool isPM);
     
     /**
+     * Display metro train arrivals
+     * 
+     * Shows up to 2 trains with their destinations and arrival times,
+     * plus a "last updated" timestamp.
+     * 
+     * Format:
+     *   | {Dest1}  - {Min1} |
+     *   | {Dest2}  - {Min2} |
+     *   | {X} {u} ago       |
+     * 
+     * :param const char* train1Dest: First train destination (or nullptr if no trains)
+     * :param const char* train1Min: First train minutes (or nullptr)
+     * :param const char* train2Dest: Second train destination (or nullptr)
+     * :param const char* train2Min: Second train minutes (or nullptr)
+     * :param const char* lastUpdated: "X s ago" or "X m ago" string
+     * :param uint16_t lineColor: Color for the train line indicator
+     */
+    void showMetroArrivals(const char* train1Dest, const char* train1Min,
+                           const char* train2Dest, const char* train2Min,
+                           const char* lastUpdated, uint16_t lineColor);
+    
+    /**
      * Get the raw display pointer for advanced operations
      * 
      * :return MatrixPanel_I2S_DMA*: Pointer to the display object
