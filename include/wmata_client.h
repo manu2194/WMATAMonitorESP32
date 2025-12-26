@@ -9,9 +9,9 @@
 #define MAX_TRAINS 2
 
 /**
- * Maximum length for destination name (first 3 letters only for LED display)
+ * Maximum length for destination name (first 4 letters only for LED display)
  */
-#define DEST_MAX_LEN 4
+#define DEST_MAX_LEN 5
 
 /**
  * Maximum length for minutes string ("ARR", "BRD", or number)

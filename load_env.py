@@ -75,6 +75,15 @@ else:
     print("⚠ Warning: WMATA_API_KEY not found in .env file")
     print("  Create a .env file with: WMATA_API_KEY=your_key_here")
 
+if "STATION_CODE" in env_vars:
+    station_code = env_vars["STATION_CODE"]
+    build_flags.append(f'-DSTATION_CODE=\\"{station_code}\\"')
+    print(f"✓ STATION_CODE loaded from .env: {station_code}")
+else:
+    # Default to B35 (NoMA-Gallaudet U) if not specified
+    build_flags.append('-DSTATION_CODE=\\"B35\\"')
+    print("ℹ STATION_CODE not in .env, using default: B35")
+
 # Append build flags to the environment
 env.Append(CPPDEFINES=[])
 for flag in build_flags:

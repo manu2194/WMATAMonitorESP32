@@ -12,9 +12,9 @@
 
 /**
  * Simple struct mirroring TrainPrediction for testing
- * Destination is now limited to 3 letters for LED display
+ * Destination is now limited to 4 letters for LED display
  */
-#define DEST_MAX_LEN 4
+#define DEST_MAX_LEN 5
 #define MIN_MAX_LEN 4
 #define LINE_MAX_LEN 3
 
@@ -47,24 +47,24 @@ void test_short_destination() {
     TrainPrediction train;
     parseTrainObject("Glenmont", "5", "RD", train);
     
-    // Truncated to first 3 letters
-    TEST_ASSERT_EQUAL_STRING("Gle", train.destination);
+    // Truncated to first 4 letters
+    TEST_ASSERT_EQUAL_STRING("Glen", train.destination);
 }
 
 void test_long_destination_truncated() {
     TrainPrediction train;
     parseTrainObject("Shady Grove", "3", "RD", train);
     
-    // Truncated to first 3 letters
-    TEST_ASSERT_EQUAL_STRING("Sha", train.destination);
+    // Truncated to first 4 letters
+    TEST_ASSERT_EQUAL_STRING("Shad", train.destination);
 }
 
 void test_destination_with_special_chars() {
     TrainPrediction train;
     parseTrainObject("Shady Grv", "1", "RD", train);
     
-    // Truncated to first 3 letters
-    TEST_ASSERT_EQUAL_STRING("Sha", train.destination);
+    // Truncated to first 4 letters
+    TEST_ASSERT_EQUAL_STRING("Shad", train.destination);
 }
 
 // ============================================================================
