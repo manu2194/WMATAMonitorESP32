@@ -84,6 +84,22 @@ else:
     build_flags.append('-DSTATION_CODE=\\"B35\\"')
     print("ℹ STATION_CODE not in .env, using default: B35")
 
+if "WIFI_SSID" in env_vars:
+    wifi_ssid = env_vars["WIFI_SSID"]
+    build_flags.append(f'-DWIFI_SSID=\\"{wifi_ssid}\\"')
+    print(f"✓ WIFI_SSID loaded from .env")
+else:
+    print("⚠ Warning: WIFI_SSID not found in .env file")
+    print("  Add to .env: WIFI_SSID=your_network_name")
+
+if "WIFI_PASSWORD" in env_vars:
+    wifi_password = env_vars["WIFI_PASSWORD"]
+    build_flags.append(f'-DWIFI_PASSWORD=\\"{wifi_password}\\"')
+    print(f"✓ WIFI_PASSWORD loaded from .env")
+else:
+    print("⚠ Warning: WIFI_PASSWORD not found in .env file")
+    print("  Add to .env: WIFI_PASSWORD=your_password")
+
 # Append build flags to the environment
 env.Append(CPPDEFINES=[])
 for flag in build_flags:
