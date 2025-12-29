@@ -23,16 +23,11 @@ Create a `.env` file in the project root:
 ```bash
 WMATA_API_KEY=your_api_key_here
 STATION_CODE=B35
+WIFI_SSID=your-wifi-name
+WIFI_PASSWORD=your-wifi-password
 ```
 
-### 4. Update WiFi Credentials
-Edit `include/config.h` and update:
-```cpp
-#define WIFI_SSID "your-wifi-name"
-#define WIFI_PASSWORD "your-wifi-password"
-```
-
-### 5. Flash the ESP32
+### 4. Flash the ESP32
 ```bash
 # Install PlatformIO CLI (if not already installed)
 pip install platformio
@@ -128,8 +123,7 @@ cd WMATAMonitorESP32
 # Create your .env file
 cp .env.example .env  # Or create manually
 
-# Edit .env with your API key and station code
-# Edit include/config.h with your WiFi credentials
+# Edit .env with your API key, station code, and WiFi credentials
 ```
 
 ### Build and Upload
@@ -170,28 +164,115 @@ pio device monitor --baud 115200
 
 ---
 
-## 🗺️ Finding Station Codes
+## 🗺️ Station Codes
 
-Each WMATA station has a unique code. You can find them:
+Each WMATA station has a unique code. Some stations have multiple codes (one per line served). Use the code for your preferred line.
 
-**Option 1: API Explorer**
-- Use the [Station List API](https://developer.wmata.com/docs/services/5476364f031f590f38092507/operations/5476364f031f5909e4fe3310/console)
-- Click "Try it" and find your station in the response
+<details>
+<summary><strong>Click to expand full station list</strong></summary>
 
-**Option 2: Common Station Codes**
+| Station | Code |
+|---------|------|
+| Addison Road-Seat Pleasant | G03 |
+| Anacostia | F06 |
+| Archives-Navy Memorial-Penn Quarter | F02 |
+| Arlington Cemetery | C06 |
+| Ashburn | N12 |
+| Ballston-MU | K04 |
+| Benning Road | G01 |
+| Bethesda | A09 |
+| Braddock Road | C12 |
+| Branch Ave | F11 |
+| Brookland-CUA | B05 |
+| Capitol Heights | G02 |
+| Capitol South | D05 |
+| Cheverly | D11 |
+| Clarendon | K02 |
+| Cleveland Park | A05 |
+| College Park-U of Md | E09 |
+| Columbia Heights | E04 |
+| Congress Heights | F07 |
+| Court House | K01 |
+| Crystal City | C09 |
+| Deanwood | D10 |
+| Downtown Largo | G05 |
+| Dunn Loring-Merrifield | K07 |
+| Dupont Circle | A03 |
+| East Falls Church | K05 |
+| Eastern Market | D06 |
+| Eisenhower Avenue | C14 |
+| Farragut North | A02 |
+| Farragut West | C03 |
+| Federal Center SW | D04 |
+| Federal Triangle | D01 |
+| Foggy Bottom-GWU | C04 |
+| Forest Glen | B09 |
+| Fort Totten | B06, E06 |
+| Franconia-Springfield | J03 |
+| Friendship Heights | A08 |
+| Gallery Pl-Chinatown | B01, F01 |
+| Georgia Ave-Petworth | E05 |
+| Glenmont | B11 |
+| Greenbelt | E10 |
+| Greensboro | N03 |
+| Grosvenor-Strathmore | A11 |
+| Herndon | N08 |
+| Huntington | C15 |
+| Hyattsville Crossing | E08 |
+| Innovation Center | N09 |
+| Judiciary Square | B02 |
+| King St-Old Town | C13 |
+| L'Enfant Plaza | D03, F03 |
+| Landover | D12 |
+| Loudoun Gateway | N11 |
+| McLean | N01 |
+| McPherson Square | C02 |
+| Medical Center | A10 |
+| Metro Center | A01, C01 |
+| Minnesota Ave | D09 |
+| Morgan Boulevard | G04 |
+| Mt Vernon Sq 7th St-Convention Center | E01 |
+| Navy Yard-Ballpark | F05 |
+| Naylor Road | F09 |
+| New Carrollton | D13 |
+| NoMa-Gallaudet U | B35 |
+| North Bethesda | A12 |
+| Pentagon | C07 |
+| Pentagon City | C08 |
+| Potomac Ave | D07 |
+| Potomac Yard | C11 |
+| Reston Town Center | N07 |
+| Rhode Island Ave-Brentwood | B04 |
+| Rockville | A14 |
+| Ronald Reagan Washington National Airport | C10 |
+| Rosslyn | C05 |
+| Shady Grove | A15 |
+| Shaw-Howard U | E02 |
+| Silver Spring | B08 |
+| Smithsonian | D02 |
+| Southern Avenue | F08 |
+| Spring Hill | N04 |
+| Stadium-Armory | D08 |
+| Suitland | F10 |
+| Takoma | B07 |
+| Tenleytown-AU | A07 |
+| Twinbrook | A13 |
+| Tysons | N02 |
+| U Street/African-Amer Civil War Memorial/Cardozo | E03 |
+| Union Station | B03 |
+| Van Dorn Street | J02 |
+| Van Ness-UDC | A06 |
+| Vienna/Fairfax-GMU | K08 |
+| Virginia Square-GMU | K03 |
+| Washington Dulles International Airport | N10 |
+| Waterfront | F04 |
+| West Falls Church | K06 |
+| West Hyattsville | E07 |
+| Wheaton | B10 |
+| Wiehle-Reston East | N06 |
+| Woodley Park-Zoo/Adams Morgan | A04 |
 
-| Station | Code | Lines |
-|---------|------|-------|
-| Metro Center | A01/C01 | RD/BL/OR/SV |
-| Gallery Place | B01/F01 | RD/GR/YL |
-| Union Station | B03 | RD |
-| L'Enfant Plaza | D03/F03 | BL/OR/SV/GR/YL |
-| NoMA-Gallaudet U | B35 | RD |
-| Dupont Circle | A03 | RD |
-| Pentagon | C07 | BL/YL |
-| Reagan Airport | C10 | BL/YL |
-
-> **Note**: Some stations have multiple codes (one per line). Use the code for your preferred line.
+</details>
 
 ---
 
@@ -228,13 +309,13 @@ WMATAMonitorESP32/
 |----------|----------|---------|-------------|
 | `WMATA_API_KEY` | Yes | - | Your WMATA Developer API key |
 | `STATION_CODE` | No | `B35` | Station code to monitor |
+| `WIFI_SSID` | Yes | - | Your WiFi network name |
+| `WIFI_PASSWORD` | Yes | - | Your WiFi password |
 
 ### Hardware Configuration (`include/config.h`)
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `WIFI_SSID` | - | Your WiFi network name |
-| `WIFI_PASSWORD` | - | Your WiFi password |
 | `PANEL_RES_X` | 64 | LED matrix width in pixels |
 | `PANEL_RES_Y` | 32 | LED matrix height in pixels |
 | `PANEL_CHAIN` | 1 | Number of chained panels |
@@ -264,7 +345,7 @@ pio test -e esp32dev_test
 ## 🐛 Troubleshooting
 
 ### "WiFi Failed!" on display
-- Double-check your SSID and password in `config.h`
+- Double-check your SSID and password in `.env`
 - Ensure your WiFi network is 2.4GHz (ESP32 doesn't support 5GHz)
 - Move the device closer to your router
 
